@@ -15,6 +15,9 @@
 ## Tip  
 为需要研究网络传输的小伙伴开头留下变量isVerifysslCert，可以指定是否验证证书有效性。  
 如果软件报SSLError的话也请把这个变量改为False  
+
+## 国内gitee镜像地址  
+https://gitee.com/w2016561536/zhixue_errorbook
   
 ## 致谢  
 https://blog.csdn.net/shadow20112011/article/details/102873995  ---   rc4加密  
