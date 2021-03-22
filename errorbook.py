@@ -179,7 +179,7 @@ def loginwithpwd(username, typepwd):
                                     cookies=weakpwdsession.cookies)
     resforweaklogin = weaklogin.json()
     if resforweaklogin["result"] == "success":
-        print(resforweaklogin["data"])
+        #print(resforweaklogin["data"])
         weakpwdsession.cookies["ui"] = resforweaklogin["data"]
     else:
         print("登陆失败："+resforweaklogin["message"])
@@ -238,7 +238,7 @@ def loginwithpwd(username, typepwd):
     st_json = json.loads(stRawText)
     result = st_json["code"]
     if result == 1001:
-        print("登陆成功")
+        #print("登陆成功")
         st_ticket = st_json["data"]["st"]
     else:
         print("登陆失败：" + "\n响应码：" + str(result) + "\n信息：" + st_json["message"])
@@ -333,11 +333,11 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
         restart_program()
     pages: list = rawrespond["result"]["pageInfo"]["allPages"]
     if len(pages) == 0:
-        print("无错题")
+        input("无错题")
         exit()
     del pages[0]
     fstart = 0
-    htmltext = "<p align=center style='text-align:center'><span style='font-size:22.0pt;mso-bidi-font-size:24.0pt'><strong>" + \
+    htmltext = r"<html><body><style>p{Margin:0px;}</style><p align=center style='text-align:center'><span style='font-size:22.0pt;mso-bidi-font-size:24.0pt'><strong>" + \
         username + "的" + subjectname + "错题本</strong></span></p><br>"
     processed = processerrorbook(rawrespond, fstart)
     htmltext += processed[0]
@@ -419,22 +419,22 @@ def processerrorbook(sourceerror, startfrom: int):
                 subquestion += 1
                 htmltext += before + \
                     str(startfrom+questionorder[i]) + "-" + \
-                    str(subquestion) + "题&nbsp;</srtong></p>"
+                    str(subquestion) + "题&nbsp;</strong></p>"
             else:
                 subquestion = 0
-                htmltext += before + str(startfrom+questionorder[i]) + "题&nbsp;</srtong>来源：" + \
+                htmltext += before + str(startfrom+questionorder[i]) + "题&nbsp;</strong>来源：" + \
                     source[i] + "&nbsp;&nbsp;&nbsp;答题时间：" + \
                     timecovent(answertime[i]) + "</p>"
                 htmltext += r"<p style='background:#DBDBDB;Margin:1px'><span style='font-size:14.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
                 htmltext += questionlists[i]
         else:
             subquestion = 0
-            htmltext += before + str(startfrom+questionorder[i]) + "题&nbsp;</srtong>来源：" + \
+            htmltext += before + str(startfrom+questionorder[i]) + "题&nbsp;</strong>来源：" + \
                 source[i] + "&nbsp;&nbsp;&nbsp;答题时间：" + \
                 timecovent(answertime[i]) + "</p>"
             htmltext += r"<p style='background:#DBDBDB;Margin:1px'><span style='font-size:14.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
             htmltext += questionlists[i]
-        #htmltext += before+ str(startfrom)  +"题</srtong>来源：" + source[i] + "答题时间：" + timecovent(answertime[i]) + "</p>"
+        #htmltext += before+ str(startfrom)  +"题</strong>来源：" + source[i] + "答题时间：" + timecovent(answertime[i]) + "</p>"
 
         htmltext += r"<p style='background:#DBDBDB;Margin:1px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
         htmltext += analysislists[i]
@@ -452,6 +452,7 @@ def processerrorbook(sourceerror, startfrom: int):
 
 
 print("欢迎使用智学网错题生成助手")
+print("本软件国内下载地址：https://gitee.com/w2016561536/zhixue_errorbook")
 loginname = input("请输入用户名：")
 loginpwd = input("请输入密码：")
 loginrespond = loginwithpwd(loginname, loginpwd)
@@ -512,7 +513,10 @@ print("学科：" + subjectdict[subjectcode], "\n起始时间：", recoginzedtim
 print("正在获取数据")
 htmltext = geterrorlists(loginsession, subjectcode,
                          starttimestamp, endtimestamp, subjectdict[subjectcode])
+htmltext+="</body>"
+htmltext+="<script>window.onload=function(){var c=document.getElementsByTagName(\"img\");for(var a=0,b;b=c[a];a++){if(b.width>600){b.width=600;}};var c=document.getElementsByTagName(\"table\");for(var a=0,b;b=c[a];a++){b.width=\"auto\"}};</script>\n"
+htmltext+="</html>"
 filepath = writefile(htmltext, username + "的" +
                      subjectdict[subjectcode] + "错题本" + str(time.mktime(time.localtime())) + ".html")
 print("完成，保存在", filepath)
-input()
+input("建议使用浏览器打开，使用CTRL+P键进行打印。\n按回车键退出程序")
