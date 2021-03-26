@@ -5,7 +5,7 @@
 此项目使用Python3.8.7构建，不兼容Python2  
 
 ## 需要引用的库  
-  os,sys,typing,requests,json,hashlib,random,time,datetime  
+  os,sys,typing,requests,json,hashlib,random,time,datetime,urllib  
  其中，requests库可能python没有预装，可以在终端内使用指令`pip install requests==2.6.0`安装（新版本理论也行，我用的2.6.0）  
 
 ## 使用方法    
