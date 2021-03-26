@@ -29,5 +29,5 @@
 https://gitee.com/w2016561536/zhixue_errorbook
   
 ## 致谢  
-https://blog.csdn.net/shadow20112011/article/details/102873995  ---   rc4加密 
+https://blog.csdn.net/shadow20112011/article/details/102873995  ---   rc4加密   
 https://github.com/mathjax/MathJax  ---  以优雅的方式在HTML文档中渲染Latex公式  
