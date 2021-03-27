@@ -337,9 +337,18 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
     htmltext = r"<html><body><style>p{Margin:0px;}</style><p align=center style='text-align:center'><span style='font-size:22.0pt;mso-bidi-font-size:24.0pt'><strong>" + \
         username + "的" + subjectname + "错题本</strong></span></p><br>"
     processed = processerrorbook(
-        rawrespond, fstart, gradecode, subject, hardcount, easycount, teachers)
+        rawrespond, fstart, gradecode, hardcount, easycount, teachers)
     htmltext += processed[0]
     fstart = processed[1]
+    if len(subject) == 1:
+        subject = "0" + subject
+    if isinstance(teachers,str) == False:
+        changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+        while changesub.status_code != 200:
+            input("出错了：状态码：" + str(changesub.status_code))
+            changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+        changesub = json.loads(changesub.text)
+        throwerror(changesub)
 
     for page in pages:
         re_fresh_auth_token(headerforerrbook)
@@ -352,7 +361,7 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
             input("回车退出程序")
             exit()
         processed = processerrorbook(
-            rawrespond, fstart, gradecode, subject, hardcount, easycount, teachers)
+            rawrespond, fstart, gradecode,  hardcount, easycount, teachers)
         htmltext += processed[0]
         fstart = processed[1]
     return htmltext
@@ -385,17 +394,8 @@ def writefile(aaaa, filename: str):
     return filepaths
 
 
-def processerrorbook(sourceerror, startfrom: int, gradecode: str, subjectcode: str, hardcount: int, easycount: int, teachers: Session):
-    if len(subjectcode) == 1:
-        subjectcode = "0" + subjectcode
-    changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
-                              data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
-    while changesub.status_code != 200:
-        input("出错了：状态码：" + str(changesub.status_code))
-        changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
-                                  data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
-    changesub = json.loads(changesub.text)
-    throwerror(changesub)
+def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int, easycount: int, teachers: Session):
+    
     before = "<p style='Margin:0px'><strong>第"
     errorbooklist = sourceerror["result"]["wrongTopics"]["list"]
     htmltext = ""
@@ -466,12 +466,12 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, subjectcode: s
             htmltext += useranswerlist[i]
         htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;参考答案</span></p>"
         htmltext += answerlist[i]
-        if easycount > 0 or hardcount > 0:
+        if easycount > 0 or hardcount > 0 and isinstance(teachers,str) == False:
             htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;推题</span></p>"
         if easycount > 0:
             htmltext += read_question(teachers, difficultlist[i], knowledgelist[i],
                                       subjectcode, questiontypelist[i], gradecode, easycount)
-        if hardcount > 0:
+        if hardcount > 0 and isinstance(teachers,str) == False:
             temphtml = read_question(
                 teachers, "5", knowledgelist[i], subjectcode, questiontypelist[i], gradecode, hardcount)
             if len(temphtml) < 5:
