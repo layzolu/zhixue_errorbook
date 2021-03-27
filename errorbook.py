@@ -15,6 +15,7 @@ import datetime
 import urllib
 
 isVerifysslCert = True  # 需要调试请改为False
+requestdelay = 1
 
 editheaders = {
     'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -342,11 +343,15 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
     fstart = processed[1]
     if len(subject) == 1:
         subject = "0" + subject
-    if isinstance(teachers,str) == False:
-        changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+    if isinstance(teachers, str) == False:
+        changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
+                                  data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+        time.sleep(requestdelay)
         while changesub.status_code != 200:
             input("出错了：状态码：" + str(changesub.status_code))
-            changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+            changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
+                                      data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+            time.sleep(requestdelay)
         changesub = json.loads(changesub.text)
         throwerror(changesub)
 
@@ -395,7 +400,7 @@ def writefile(aaaa, filename: str):
 
 
 def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int, easycount: int, teachers: Session):
-    
+
     before = "<p style='Margin:0px'><strong>第"
     errorbooklist = sourceerror["result"]["wrongTopics"]["list"]
     htmltext = ""
@@ -409,12 +414,19 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int
     difficultlist = []
     knowledgelist = []
     questiontypelist = []
-    subquestion = 0
+    smalltopicnumber = []
+    ismulti = []
     for question in errorbooklist:
         question = question["errorBookTopicDTO"]
         questionlists.append(question["contentHtml"].replace("\\", ""))
         analysislists.append(question["analysisHtml"].replace("\\", ""))
         answerlist.append(question["answerHtml"].replace("\\", ""))
+        if "isMulti" in question["wrongTopicRecordArchive"]:
+            ismulti.append(question["wrongTopicRecordArchive"]["isMulti"])
+        else:
+            ismulti.append(False)
+        smalltopicnumber.append(
+            question["wrongTopicRecordArchive"]["smallTopicNumber"])
         answertime.append(
             question["wrongTopicRecordArchive"]["userAnswerTime"])
         source.append(question["wrongTopicRecordArchive"]["topicSetName"])
@@ -424,7 +436,8 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int
         knowledgelist.append(
             question["wrongTopicRecordArchive"]["knowledgeIds"])
         if "topicType" in question["wrongTopicRecordArchive"]:
-            questiontypelist.append(str(question["wrongTopicRecordArchive"]["topicType"]))
+            questiontypelist.append(
+                str(question["wrongTopicRecordArchive"]["topicType"]))
         else:
             questiontypelist.append("00")
         if "imageAnswers" in question["wrongTopicRecordArchive"]:
@@ -433,31 +446,33 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int
         else:
             useranswerlist.append(
                 question["wrongTopicRecordArchive"]["userAnswer"])
-    for i in range(0, len(questionlists)-1):
-        if i != 0:
-            if questionorder[i] == questionorder[i-1]:
-                subquestion += 1
-                htmltext += before + \
-                    str(startfrom+questionorder[i]) + "-" + \
-                    str(subquestion) + "题&nbsp;</strong></p>"
-            else:
-                subquestion = 0
-                htmltext += before + str(startfrom+questionorder[i]) + "题&nbsp;</strong>来源：" + \
-                    source[i] + "&nbsp;&nbsp;&nbsp;答题时间：" + \
-                    timecovent(answertime[i]) + "</p>"
-                htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:14.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
-                htmltext += questionlists[i]
+    lastorder = -1
+    for i in range(0, len(questionlists)):
+        needmoreinfo = 1
+        if startfrom+questionorder[i] == lastorder and ismulti[i] == True:
+            htmltext += before + \
+                str(startfrom+questionorder[i]) + "-" + \
+                str(smalltopicnumber[i]) + "题&nbsp;</strong></p>"
+            needmoreinfo = 0
+            # htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
+            #htmltext += analysislists[i]
+        elif startfrom+questionorder[i] != lastorder and ismulti[i] == True:
+            htmltext += before + str(startfrom+questionorder[i]) + "-" + str(
+                smalltopicnumber[i]) + "题&nbsp;</strong>来源：" + source[i] + "&nbsp;&nbsp;&nbsp;答题时间：" + timecovent(answertime[i]) + "</p>"
+            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:14.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
+            htmltext += questionlists[i]
+            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
+            htmltext += analysislists[i]
+            needmoreinfo = 1
         else:
-            subquestion = 0
             htmltext += before + str(startfrom+questionorder[i]) + "题&nbsp;</strong>来源：" + \
                 source[i] + "&nbsp;&nbsp;&nbsp;答题时间：" + \
                 timecovent(answertime[i]) + "</p>"
             htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:14.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
             htmltext += questionlists[i]
-        #htmltext += before+ str(startfrom)  +"题</strong>来源：" + source[i] + "答题时间：" + timecovent(answertime[i]) + "</p>"
-
-        htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
-        htmltext += analysislists[i]
+            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
+            htmltext += analysislists[i]
+            needmoreinfo = 1
         htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;我的答案</span></p>"
         if isinstance(useranswerlist[i], list):
             for pic in useranswerlist[i]:
@@ -466,20 +481,22 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int
             htmltext += useranswerlist[i]
         htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;参考答案</span></p>"
         htmltext += answerlist[i]
-        if easycount > 0 or hardcount > 0 and isinstance(teachers,str) == False:
+        if easycount > 0 or hardcount > 0 and isinstance(teachers, str) == False and needmoreinfo == 1:
             htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;推题</span></p>"
         if easycount > 0:
             htmltext += read_question(teachers, difficultlist[i], knowledgelist[i],
                                       subjectcode, questiontypelist[i], gradecode, easycount)
-        if hardcount > 0 and isinstance(teachers,str) == False:
+        if hardcount > 0 and isinstance(teachers, str) == False and needmoreinfo == 1:
             temphtml = read_question(
                 teachers, "5", knowledgelist[i], subjectcode, questiontypelist[i], gradecode, hardcount)
             if len(temphtml) < 5:
                 temphtml = read_question(
                     teachers, "4", knowledgelist[i], subjectcode, questiontypelist[i], gradecode, hardcount)
             htmltext += temphtml
+        #htmltext+= str(needmoreinfo)
         htmltext += "<br><br><br><br>"
-    startfrom += questionorder[-1] - 1
+        lastorder = startfrom+questionorder[i]
+    startfrom += questionorder[-1]
     return [htmltext, startfrom]
 
 
@@ -562,10 +579,12 @@ def read_question(teacher: Session, difficulty: str, knowledgeid: list, subjects
         gradecode = "0" + gradecode
     firstget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
                            "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
+    time.sleep(requestdelay)
     while firstget.status_code != 200:
         input("出错了：状态码：" + str(firstget.status_code))
         firstget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
                                "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
+        time.sleep(requestdelay)
     firstget = json.loads(firstget.text)
     throwerror(firstget)
     htmltext = ""
@@ -599,10 +618,12 @@ def read_question(teacher: Session, difficulty: str, knowledgeid: list, subjects
             else:
                 secondget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=" + str(pagechoice) + "&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
                                         "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
+                time.sleep(requestdelay)
                 while secondget.status_code != 200:
                     input("出错了：状态码：" + str(secondget.status_code))
                     secondget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
                                             "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
+                    time.sleep(requestdelay)
                 secondget = json.loads(secondget.text)
                 throwerror(secondget)
                 templist = 0
