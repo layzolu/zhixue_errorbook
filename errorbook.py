@@ -318,7 +318,7 @@ def timecovent(timestamp: str):
     return otherStyleTime
 
 
-def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, gradecode:str,hardcount:int,easycount:int,subjectname: str, teachers: Session):
+def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, gradecode: str, hardcount: int, easycount: int, subjectname: str, teachers: Session):
     re_fresh_auth_token(headerforerrbook)
     rawrespond = session.get("https://www.zhixue.com/addon/app/errorbook/getErrorbookList?subjectCode=" +
                              subject+"&beginTime="+begintime+"&endTime="+endtime+"&pageIndex=1&pageSize=10", headers=headerforerrbook, verify=isVerifysslCert, cookies=session.cookies)
@@ -336,7 +336,8 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
     fstart = 0
     htmltext = r"<html><body><style>p{Margin:0px;}</style><p align=center style='text-align:center'><span style='font-size:22.0pt;mso-bidi-font-size:24.0pt'><strong>" + \
         username + "的" + subjectname + "错题本</strong></span></p><br>"
-    processed = processerrorbook(rawrespond, fstart,gradecode, subject,hardcount,easycount,teachers)
+    processed = processerrorbook(
+        rawrespond, fstart, gradecode, subject, hardcount, easycount, teachers)
     htmltext += processed[0]
     fstart = processed[1]
 
@@ -350,7 +351,8 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
                   str(rawrespond["errorCode"]) + "\n信息：" + rawrespond["errorInfo"])
             input("回车退出程序")
             exit()
-        processed = processerrorbook(rawrespond, fstart,gradecode, subject,hardcount,easycount,teachers)
+        processed = processerrorbook(
+            rawrespond, fstart, gradecode, subject, hardcount, easycount, teachers)
         htmltext += processed[0]
         fstart = processed[1]
     return htmltext
@@ -387,7 +389,11 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, subjectcode: s
     if len(subjectcode) == 1:
         subjectcode = "0" + subjectcode
     changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
-                             data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+                              data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+    while changesub.status_code != 200:
+        input("出错了：状态码：" + str(changesub.status_code))
+        changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
+                                  data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
     changesub = json.loads(changesub.text)
     throwerror(changesub)
     before = "<p style='Margin:0px'><strong>第"
@@ -417,8 +423,10 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, subjectcode: s
             str(question["wrongTopicRecordArchive"]["difficultyValue"]))
         knowledgelist.append(
             question["wrongTopicRecordArchive"]["knowledgeIds"])
-        questiontypelist.append(
-            str(question["wrongTopicRecordArchive"]["topicType"]))
+        if "topicType" in question["wrongTopicRecordArchive"]:
+            questiontypelist.append(str(question["wrongTopicRecordArchive"]["topicType"]))
+        else:
+            questiontypelist.append("00")
         if "imageAnswers" in question["wrongTopicRecordArchive"]:
             useranswerlist.append(
                 question["wrongTopicRecordArchive"]["imageAnswers"])
@@ -460,12 +468,16 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, subjectcode: s
         htmltext += answerlist[i]
         if easycount > 0 or hardcount > 0:
             htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;推题</span></p>"
-        if easycount > 0 :
+        if easycount > 0:
             htmltext += read_question(teachers, difficultlist[i], knowledgelist[i],
                                       subjectcode, questiontypelist[i], gradecode, easycount)
-        if hardcount > 0 :
-            htmltext += read_question(
+        if hardcount > 0:
+            temphtml = read_question(
                 teachers, "5", knowledgelist[i], subjectcode, questiontypelist[i], gradecode, hardcount)
+            if len(temphtml) < 5:
+                temphtml = read_question(
+                    teachers, "4", knowledgelist[i], subjectcode, questiontypelist[i], gradecode, hardcount)
+            htmltext += temphtml
         htmltext += "<br><br><br><br>"
     startfrom += questionorder[-1] - 1
     return [htmltext, startfrom]
@@ -550,6 +562,10 @@ def read_question(teacher: Session, difficulty: str, knowledgeid: list, subjects
         gradecode = "0" + gradecode
     firstget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
                            "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
+    while firstget.status_code != 200:
+        input("出错了：状态码：" + str(firstget.status_code))
+        firstget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
+                               "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
     firstget = json.loads(firstget.text)
     throwerror(firstget)
     htmltext = ""
@@ -581,8 +597,12 @@ def read_question(teacher: Session, difficulty: str, knowledgeid: list, subjects
                     templist += 1
                 htmltext += arrangelist(realchoice)
             else:
-                secondget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=" + str(pagechoice) + "&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" +
-                                        difficulty + "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
+                secondget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=" + str(pagechoice) + "&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
+                                        "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
+                while secondget.status_code != 200:
+                    input("出错了：状态码：" + str(secondget.status_code))
+                    secondget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
+                                            "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
                 secondget = json.loads(secondget.text)
                 throwerror(secondget)
                 templist = 0
@@ -630,26 +650,26 @@ while not subjectcode in subjectdict:
     print("别瞎输入")
     subjectcode = input("请输入待生成学科的id：")
 if easycount == -1:
-    easycount = input("所需同等难度推题数量([0,10])：")
-    while easycount.isdigit() != True or easycount.find(".") != -1 :
+    easycount = input("所需同等难度推题数量[0,10]：")
+    while easycount.isdigit() != True or easycount.find(".") != -1:
         easycount = input("所需同等难度推题数量[0,10]：")
     if easycount == "":
         easycount = 0
-    elif int(easycount) > 10 :
+    elif int(easycount) > 10:
         easycount = 10
-    elif int(easycount)<0:
+    elif int(easycount) < 0:
         easycount = 0
     else:
         easycount = int(easycount)
 
     hardcount = input("所需高难度推题数量[0,10]：")
-    while hardcount.isdigit() != True or hardcount.find(".") != -1 :
+    while hardcount.isdigit() != True or hardcount.find(".") != -1:
         hardcount = input("所需高难度推题数量[0,10]：")
-    if hardcount == "" :
+    if hardcount == "":
         hardcount = 0
-    elif int(hardcount) > 10 :
+    elif int(hardcount) > 10:
         hardcount = 10
-    elif int(hardcount)<0:
+    elif int(hardcount) < 0:
         hardcount = 0
     else:
         hardcount = int(hardcount)
@@ -700,7 +720,7 @@ print("学科：" + subjectdict[subjectcode], "\n起始时间：", recoginzedtim
     "%Y-%m-%d"), "\n终止时间：", endrecoginzedtime.strftime("%Y-%m-%d"))
 print("正在获取数据")
 htmltext = geterrorlists(student, subjectcode,
-                         starttimestamp, endtimestamp,dgrage ,hardcount,easycount,subjectdict[subjectcode],teacher)
+                         starttimestamp, endtimestamp, dgrage, hardcount, easycount, subjectdict[subjectcode], teacher)
 htmltext += "</body>"
 htmltext += "<script>window.onload=function(){var c=document.getElementsByTagName(\"img\");for(var a=0,b;b=c[a];a++){if(b.width>630){b.width=630;}};var c=document.getElementsByTagName(\"table\");for(var a=0,b;b=c[a];a++){b.width=\"auto\"}};</script>\n"
 htmltext += "<script type=\"text/javascript\" async \nsrc=\"https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML\" async></script>"
