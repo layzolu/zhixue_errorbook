@@ -15,7 +15,7 @@ import datetime
 import urllib
 
 isVerifysslCert = True  # 需要调试请改为False
-requestdelay = 1
+requestdelay = 6
 
 editheaders = {
     'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -159,7 +159,13 @@ def paddind(fHexArray: list, keylen: int):
     return fHexArray
 
 
-def loginwithpwd(username, typepwd):
+def relogin(username, typepwd, isrelogin):
+    print("正在尝试重新登陆")
+    msg = loginwithpwd(username, typepwd, isrelogin)
+    return msg
+
+
+def loginwithpwd(username, typepwd, isrelogin):
     # rc4-登陆
     weakpwdsession = requests.Session()
     password = encryRC4String(typepwd, "iflytzhixueweb", chartSet='utf-8')
@@ -180,9 +186,20 @@ def loginwithpwd(username, typepwd):
         # print(resforweaklogin["data"])
         weakpwdsession.cookies["ui"] = resforweaklogin["data"]
     else:
-        print("登陆失败："+resforweaklogin["message"])
-        input("回车退出程序")
-        exit()
+        if isrelogin == 0:
+            print("登陆失败："+resforweaklogin["message"])
+            msg = relogin(username, typepwd, isrelogin+1)
+            return msg
+        elif isrelogin == 1:
+            print("登陆失败："+resforweaklogin["message"])
+            anme = input("登陆失败，请重新输入用户名尝试：")
+            pwd = input("请重新输入密码：")
+            msg = relogin(anme, pwd, isrelogin+1)
+            return msg
+        else:
+            print("登陆失败："+resforweaklogin["message"])
+            input("回车退出程序")
+            exit()
 
     # rc4 登陆结束
 
@@ -196,9 +213,20 @@ def loginwithpwd(username, typepwd):
                                        loginstatue.cookies["tlsysSessionId"]
                                        )
     if makeloginreq.json()["errorCode"] != 0:
-        print("出错了！！\n响应码："+str(makeloginreq.json()["errorCode"]))
-        input("回车退出程序")
-        exit()
+        if isrelogin == 0:
+            print("出错了！！\n响应码："+str(makeloginreq.json()["errorCode"]))
+            msg = relogin(username, typepwd, isrelogin+1)
+            return msg
+        elif isrelogin == 1:
+            print("出错了！！\n响应码："+str(makeloginreq.json()["errorCode"]))
+            anme = input("登陆失败，请重新输入用户名尝试：")
+            pwd = input("请重新输入密码：")
+            msg = relogin(anme, pwd, isrelogin+1)
+            return msg
+        else:
+            print("出错了！！\n响应码："+str(makeloginreq.json()["errorCode"]))
+            input("回车退出程序")
+            exit()
 
     # 获取LT
     centrallogin = requests.Session()
@@ -239,9 +267,23 @@ def loginwithpwd(username, typepwd):
         # print("登陆成功")
         st_ticket = st_json["data"]["st"]
     else:
-        print("登陆失败：" + "\n响应码：" + str(result) + "\n信息：" + st_json["message"])
-        input("回车退出程序")
-        exit()
+        if isrelogin == 0:
+            print("登陆失败：" + "\n响应码：" + str(result) +
+                  "\n信息：" + st_json["message"])
+            msg = relogin(username, typepwd, isrelogin+1)
+            return msg
+        elif isrelogin == 1:
+            print("登陆失败：" + "\n响应码：" + str(result) +
+                  "\n信息：" + st_json["message"])
+            anme = input("登陆失败，请重新输入用户名尝试：")
+            pwd = input("请重新输入密码：")
+            msg = relogin(anme, pwd, isrelogin+1)
+            return msg
+        else:
+            print("登陆失败：" + "\n响应码：" + str(result) +
+                  "\n信息：" + st_json["message"])
+            input("回车退出程序")
+            exit()
     # 中央认证结束
     # 向智学网提交st
     verfiylogin = weakpwdsession.post(serviceUrl, data="action=login&ticket=" +
@@ -258,10 +300,25 @@ def loginwithpwd(username, typepwd):
         print("获取用户信息成功！\n用户id：" + userinfo["result"]["currentUser"]
               ["loginName"]+"\n用户名：" + userinfo["result"]["currentUser"]["name"])
     else:
-        print("登陆失败：" + "\n响应码：" +
-              str(userinfo["errorCode"]) + "\n信息：" + userinfo["errorInfo"])
-        input("回车退出程序")
-        exit()
+
+        if isrelogin == 0:
+            print("登陆失败：" + "\n响应码：" +
+                  str(userinfo["errorCode"]) + "\n信息：" + userinfo["errorInfo"])
+            msg = relogin(username, typepwd, isrelogin+1)
+            return msg
+        elif isrelogin == 1:
+            print("登陆失败：" + "\n响应码：" +
+                  str(userinfo["errorCode"]) + "\n信息：" + userinfo["errorInfo"])
+            anme = input("登陆失败，请重新输入用户名尝试：")
+            pwd = input("请重新输入密码：")
+            msg = relogin(anme, pwd, isrelogin+1)
+            return msg
+        else:
+            print("登陆失败：" + "\n响应码：" +
+                  str(userinfo["errorCode"]) + "\n信息：" + userinfo["errorInfo"])
+            input("回车退出程序")
+            exit()
+
     # 获取用户信息结束
     return [weakpwdsession, userinfo["result"]["currentUser"]["loginName"], userinfo["result"]["currentUser"]["name"]]
 
@@ -319,7 +376,7 @@ def timecovent(timestamp: str):
     return otherStyleTime
 
 
-def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, gradecode: str, hardcount: int, easycount: int, subjectname: str, teachers: Session):
+def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, gradecode: str, hardcount: int, easycount: int, subjectname: str, teachers: Session,requiresametype:bool):
     re_fresh_auth_token(headerforerrbook)
     rawrespond = session.get("https://www.zhixue.com/addon/app/errorbook/getErrorbookList?subjectCode=" +
                              subject+"&beginTime="+begintime+"&endTime="+endtime+"&pageIndex=1&pageSize=10", headers=headerforerrbook, verify=isVerifysslCert, cookies=session.cookies)
@@ -335,12 +392,6 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
         exit()
     del pages[0]
     fstart = 0
-    htmltext = r"<html><body><style>p{Margin:0px;}</style><p align=center style='text-align:center'><span style='font-size:22.0pt;mso-bidi-font-size:24.0pt'><strong>" + \
-        username + "的" + subjectname + "错题本</strong></span></p><br>"
-    processed = processerrorbook(
-        rawrespond, fstart, gradecode, hardcount, easycount, teachers)
-    htmltext += processed[0]
-    fstart = processed[1]
     if len(subject) == 1:
         subject = "0" + subject
     if isinstance(teachers, str) == False:
@@ -354,7 +405,12 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
             time.sleep(requestdelay)
         changesub = json.loads(changesub.text)
         throwerror(changesub)
-
+    htmltext = r"<html><body><style>p{Margin:0px;}</style><p align=center style='text-align:center'><span style='font-size:22.0pt;mso-bidi-font-size:24.0pt'><strong>" + \
+        username + "的" + subjectname + "错题本</strong></span></p><br>"
+    processed = processerrorbook(
+        rawrespond, fstart, gradecode, hardcount, easycount, teachers,requiresametype)
+    htmltext += processed[0]
+    fstart = processed[1]
     for page in pages:
         re_fresh_auth_token(headerforerrbook)
         rawrespond = session.get("https://www.zhixue.com/addon/app/errorbook/getErrorbookList?subjectCode=" +
@@ -366,7 +422,7 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
             input("回车退出程序")
             exit()
         processed = processerrorbook(
-            rawrespond, fstart, gradecode,  hardcount, easycount, teachers)
+            rawrespond, fstart, gradecode,  hardcount, easycount, teachers,requiresametype)
         htmltext += processed[0]
         fstart = processed[1]
     return htmltext
@@ -399,7 +455,7 @@ def writefile(aaaa, filename: str):
     return filepaths
 
 
-def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int, easycount: int, teachers: Session):
+def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int, easycount: int, teachers: Session,requireSametype:bool):
 
     before = "<p style='Margin:0px'><strong>第"
     errorbooklist = sourceerror["result"]["wrongTopics"]["list"]
@@ -454,35 +510,37 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int
                 str(startfrom+questionorder[i]) + "-" + \
                 str(smalltopicnumber[i]) + "题&nbsp;</strong></p>"
             needmoreinfo = 0
-            # htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
+            # htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
             #htmltext += analysislists[i]
         elif startfrom+questionorder[i] != lastorder and ismulti[i] == True:
             htmltext += before + str(startfrom+questionorder[i]) + "-" + str(
                 smalltopicnumber[i]) + "题&nbsp;</strong>来源：" + source[i] + "&nbsp;&nbsp;&nbsp;答题时间：" + timecovent(answertime[i]) + "</p>"
-            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:14.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
+            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
             htmltext += questionlists[i]
-            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
+            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
             htmltext += analysislists[i]
             needmoreinfo = 1
         else:
             htmltext += before + str(startfrom+questionorder[i]) + "题&nbsp;</strong>来源：" + \
                 source[i] + "&nbsp;&nbsp;&nbsp;答题时间：" + \
                 timecovent(answertime[i]) + "</p>"
-            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:14.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
+            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
             htmltext += questionlists[i]
-            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
+            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
             htmltext += analysislists[i]
             needmoreinfo = 1
-        htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;我的答案</span></p>"
+        htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;我的答案</span></p>"
         if isinstance(useranswerlist[i], list):
             for pic in useranswerlist[i]:
                 htmltext += "<img src=\""+pic+"\"><br>"
         else:
             htmltext += useranswerlist[i]
-        htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;参考答案</span></p>"
+        htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;参考答案</span></p>"
         htmltext += answerlist[i]
         if easycount > 0 or hardcount > 0 and isinstance(teachers, str) == False and needmoreinfo == 1:
-            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='font-size:12.0pt;color:green'>&nbsp;&nbsp;&nbsp;&nbsp;推题</span></p>"
+            if requireSametype == False:
+                questiontypelist[i] = ""
+            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;推题</span></p>"
         if easycount > 0:
             htmltext += read_question(teachers, difficultlist[i], knowledgelist[i],
                                       subjectcode, questiontypelist[i], gradecode, easycount)
@@ -639,10 +697,13 @@ def read_question(teacher: Session, difficulty: str, knowledgeid: list, subjects
 
 
 print("欢迎使用智学网错题生成助手")
+global stuAccount
+global tchAccount
+stuAccount = []
 print("本软件国内下载地址：https://gitee.com/w2016561536/zhixue_errorbook")
 loginname = input("请输入学生账户用户名：")
 loginpwd = input("请输入学生账户密码：")
-loginrespond = loginwithpwd(loginname, loginpwd)
+loginrespond = loginwithpwd(loginname, loginpwd, 0)
 student = loginrespond[0]
 useruid = loginrespond[1]
 username = loginrespond[2]
@@ -652,15 +713,24 @@ getstuinfo = json.loads(getstuinfo.text)
 cgrade = getstuinfo["student"]["clazz"]["grade"]["name"]
 dgrage = getstuinfo["student"]["clazz"]["grade"]["code"]
 print("年级：" + cgrade)
+stuAccount.append([loginrespond,loginname,loginpwd])
 teacher = ""
 hardcount = -2
 easycount = -2
-loginname = input("请输入教师账户用户名，用于推题：")
-if loginname:
-    loginpwd = input("请输入教师账户密码：")
-    loginrespond = loginwithpwd(loginname, loginpwd)
-    teacher = loginrespond[0]
-    easycount = -1
+
+
+tchAccount = []
+loginname = "a"
+while loginname != "" :
+    loginname = input("请输入教师账户用户名，用于推题：")
+    if loginname:
+        loginpwd = input("请输入教师账户密码：")
+        loginrespond = loginwithpwd(loginname, loginpwd, 0)
+        teacher = loginrespond[0]
+        tchAccount.append([teacher, loginname, loginpwd])
+        easycount = -1
+    break
+
 
 headerforerrbook["XToken"] = "null"
 xtoken = getxtoken(student)
@@ -694,6 +764,13 @@ if easycount == -1:
         hardcount = 0
     else:
         hardcount = int(hardcount)
+    
+    requireSameType = False
+    requireSameType = input("是否需要按原题类型推题（是请随意输入后回车，否直接回车）：")
+    if requireSameType == "" :
+        requireSameType = False
+    else:
+        requireSameType =True
 
 startdateraw = input("请输入起始时间，格式为yyyy/mm/dd，无需补0：")
 global starttimestamp
@@ -741,10 +818,10 @@ print("学科：" + subjectdict[subjectcode], "\n起始时间：", recoginzedtim
     "%Y-%m-%d"), "\n终止时间：", endrecoginzedtime.strftime("%Y-%m-%d"))
 print("正在获取数据")
 htmltext = geterrorlists(student, subjectcode,
-                         starttimestamp, endtimestamp, dgrage, hardcount, easycount, subjectdict[subjectcode], teacher)
+                         starttimestamp, endtimestamp, dgrage, hardcount, easycount, subjectdict[subjectcode], teacher,requireSameType)
 htmltext += "</body>"
 htmltext += "<script>window.onload=function(){var c=document.getElementsByTagName(\"img\");for(var a=0,b;b=c[a];a++){if(b.width>630){b.width=630;}};var c=document.getElementsByTagName(\"table\");for(var a=0,b;b=c[a];a++){b.width=\"auto\"}};</script>\n"
-htmltext += "<script type=\"text/javascript\" async \nsrc=\"https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML\" async></script>"
+htmltext += "<script type=\"text/javascript\" async \nsrc=\"https://static.zhixue.com/common/mathjax/2.7.1/MathJax.js?config=TeX-AMS_CHTML\" async></script>"
 htmltext += "</html>"
 htmltext = covent_img_to_latex(htmltext)
 filepath = writefile(htmltext, username + "的" +
