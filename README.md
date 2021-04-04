@@ -3,6 +3,7 @@
  
 ## 注意：  
 此项目使用Python3.8.7构建，不兼容Python2  
+为维护方便，删除了release，请直接在code中下载erroebook.py    
 
 ## 需要引用的库  
   os,sys,typing,requests,json,hashlib,random,time,datetime,urllib  
