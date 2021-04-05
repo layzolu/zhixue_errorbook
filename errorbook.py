@@ -731,7 +731,7 @@ while loginname != "" :
         easycount = -1
     break
 
-
+requireSameType = False
 headerforerrbook["XToken"] = "null"
 xtoken = getxtoken(student)
 headerforerrbook["XToken"] = xtoken
@@ -765,7 +765,6 @@ if easycount == -1:
     else:
         hardcount = int(hardcount)
     
-    requireSameType = False
     requireSameType = input("是否需要按原题类型推题（是请随意输入后回车，否直接回车）：")
     if requireSameType == "" :
         requireSameType = False
