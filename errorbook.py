@@ -466,10 +466,10 @@ def getsubject(session: Session):
 
 
 def writefile(aaaa, filename: str):
-    with open(os.path.join(os.path.dirname(__file__), filename), "w+", encoding='utf-8') as f:
+    with open(os.path.join(os.path.abspath(""), filename), "w+", encoding='utf-8') as f:
         f.write(str(aaaa))
         f.close()
-    filepaths = os.path.join(os.path.dirname(__file__), filename)
+    filepaths = os.path.join(os.path.abspath(""), filename)
     return filepaths
 
 
