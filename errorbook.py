@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Pattern
+from typing import Pattern, SupportsRound
 import requests
 from requests import utils
 from requests import cookies
@@ -14,8 +14,12 @@ import time
 import datetime
 import urllib
 
-isVerifysslCert = True  # 需要调试请改为False
-requestdelay = 6
+isVerifysslCert = True  # 需要网络调试请改为False
+requestdelay = 6  #教师账号推题请求延时，单位秒
+global needsaveuseranswer
+needsaveuseranswer = True #是否保存自己的错误答案
+config_stu_name = "" #配置默认学生账号密码，留空代表每次询问
+config_stu_pwd = ""
 
 editheaders = {
     'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -376,7 +380,7 @@ def timecovent(timestamp: str):
     return otherStyleTime
 
 
-def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, gradecode: str, hardcount: int, easycount: int, subjectname: str, teachers: Session,requiresametype:bool):
+def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, gradecode: str, hardcount: int, easycount: int, subjectname: str, teachers: Session,requiresametype:bool,tchlist:list):
     re_fresh_auth_token(headerforerrbook)
     rawrespond = session.get("https://www.zhixue.com/addon/app/errorbook/getErrorbookList?subjectCode=" +
                              subject+"&beginTime="+begintime+"&endTime="+endtime+"&pageIndex=1&pageSize=10", headers=headerforerrbook, verify=isVerifysslCert, cookies=session.cookies)
@@ -394,18 +398,21 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
     fstart = 0
     if len(subject) == 1:
         subject = "0" + subject
-    if isinstance(teachers, str) == False:
-        changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
-                                  data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
-        time.sleep(requestdelay)
-        while changesub.status_code != 200:
-            input("出错了：状态码：" + str(changesub.status_code))
-            changesub = teachers.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
-                                      data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
-            time.sleep(requestdelay)
-        changesub = json.loads(changesub.text)
-        throwerror(changesub)
-    htmltext = r"<html><body><style>p{Margin:0px;}</style><p align=center style='text-align:center'><span style='font-size:22.0pt;mso-bidi-font-size:24.0pt'><strong>" + \
+    for switchtch in tchlist:
+        switchtch = switchtch[0]
+        if isinstance(switchtch, str) == False:
+            changesub = switchtch.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
+                                    data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+            time.sleep(requestdelay/len(tchAccount))
+            while changesub.status_code != 200:
+                input("出错了：状态码：" + str(changesub.status_code))
+                changesub = switchtch.post("https://www.zhixue.com/paperfresh/api/common/switchSubject",
+                                        data="phaseCode=05&subjectCode="+subjectcode, verify=isVerifysslCert, headers=editheaders)
+                time.sleep(requestdelay/len(tchAccount))
+            changesub = json.loads(changesub.text)
+            throwerror(changesub)
+
+    htmltext = "<html><haed><meta charset=\"utf-8\"></head><body><style>p{Margin:0px;}</style><p align=center style='text-align:center'><span style='font-size:22.0pt;mso-bidi-font-size:24.0pt'><strong>" + \
         username + "的" + subjectname + "错题本</strong></span></p><br>"
     processed = processerrorbook(
         rawrespond, fstart, gradecode, hardcount, easycount, teachers,requiresametype)
@@ -427,6 +434,17 @@ def geterrorlists(session: Session, subject: str, begintime: str, endtime: str, 
         fstart = processed[1]
     return htmltext
 
+def switch_tch (tchlist:list,usingtch:Session,usinginfo:list):
+    totalcount = len(tchlist)
+    nowcount = tchlist.index(usinginfo)
+    if nowcount + 1 < totalcount:
+        usingtch = tchlist[nowcount+1][0]
+        usinginfo = tchlist[nowcount+1]
+    else:
+        usingtch = tchlist[0][0]
+        usinginfo = tchlist[0]
+        
+    return usingtch
 
 def getsubject(session: Session):
     re_fresh_auth_token(headerforerrbook)
@@ -503,6 +521,11 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int
             useranswerlist.append(
                 question["wrongTopicRecordArchive"]["userAnswer"])
     lastorder = -1
+    if needsaveuseranswer == False :
+        i = 0 
+        while i<len(useranswerlist):
+            useranswerlist[i] = ""
+            i += 1
     for i in range(0, len(questionlists)):
         needmoreinfo = 1
         if startfrom+questionorder[i] == lastorder and ismulti[i] == True:
@@ -516,25 +539,26 @@ def processerrorbook(sourceerror, startfrom: int, gradecode: str, hardcount: int
             htmltext += before + str(startfrom+questionorder[i]) + "-" + str(
                 smalltopicnumber[i]) + "题&nbsp;</strong>来源：" + source[i] + "&nbsp;&nbsp;&nbsp;答题时间：" + timecovent(answertime[i]) + "</p>"
             htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
-            htmltext += questionlists[i]
+            htmltext += loop_clear_expires(questionlists[i])
             htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
-            htmltext += analysislists[i]
+            htmltext += loop_clear_expires(analysislists[i])
             needmoreinfo = 1
         else:
             htmltext += before + str(startfrom+questionorder[i]) + "题&nbsp;</strong>来源：" + \
                 source[i] + "&nbsp;&nbsp;&nbsp;答题时间：" + \
                 timecovent(answertime[i]) + "</p>"
             htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;错题题目</span></p>"
-            htmltext += questionlists[i]
+            htmltext += loop_clear_expires(questionlists[i])
             htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;解析</span></p>"
-            htmltext += analysislists[i]
+            htmltext += loop_clear_expires(analysislists[i])
             needmoreinfo = 1
-        htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;我的答案</span></p>"
+        if needsaveuseranswer == True:
+            htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;我的答案</span></p>"
         if isinstance(useranswerlist[i], list):
             for pic in useranswerlist[i]:
-                htmltext += "<img src=\""+pic+"\"><br>"
+                htmltext += loop_clear_expires("<img src=\""+pic+"\"><br>")
         else:
-            htmltext += useranswerlist[i]
+            htmltext += loop_clear_expires(useranswerlist[i])
         htmltext += r"<p style='background:#DBDBDB;Margin:0px'><span style='color:green'>&nbsp;&nbsp;&nbsp;&nbsp;参考答案</span></p>"
         htmltext += answerlist[i]
         if easycount > 0 or hardcount > 0 and isinstance(teachers, str) == False and needmoreinfo == 1:
@@ -625,6 +649,33 @@ def coventlist(rawlist: list):
         returnstr = returnstr[:-1] + "]"
         return returnstr
 
+def clear_expires(sourcestr:str):
+    front=sourcestr.find("&Expires=")
+    if front == -1:
+        front = sourcestr.find("Expires=")
+    if front == -1 :
+        return sourcestr
+    else:
+        behiend=sourcestr.find("&",front+1)
+        if behiend == -1 :
+            behiend = ""
+        if sourcestr[front] == "&" :
+            if isinstance(behiend,int) == True:
+                return sourcestr[0:front] + sourcestr[behiend:]
+            else:
+                return sourcestr[0:front]
+        else :
+            if isinstance(behiend,int) == True:
+                return sourcestr[0:front] + sourcestr[behiend+1:]
+            else:
+                return sourcestr[0:front]
+
+def loop_clear_expires(sourcehtml:str):
+    tempresult = sourcehtml
+    while tempresult != clear_expires(tempresult):
+        tempresult = clear_expires(tempresult)
+    return tempresult
+
 
 def read_question(teacher: Session, difficulty: str, knowledgeid: list, subjectscode: str, questiontype: str, gradecode: str, counts: int):
     difficulty = int(difficulty)
@@ -635,14 +686,19 @@ def read_question(teacher: Session, difficulty: str, knowledgeid: list, subjects
         questiontype = "0" + questiontype
     if len(gradecode) == 1:
         gradecode = "0" + gradecode
-    firstget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
+
+    #print(u_tch_info[1],u_tch_info[2])
+    firstget = using_tch_session.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
                            "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
-    time.sleep(requestdelay)
+    switch_tch(tchAccount,using_tch_session,u_tch_info)
+    time.sleep(requestdelay/len(tchAccount))
     while firstget.status_code != 200:
         input("出错了：状态码：" + str(firstget.status_code))
-        firstget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
+        #print(u_tch_info[1],u_tch_info[2])
+        firstget = using_tch_session.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
                                "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
-        time.sleep(requestdelay)
+        switch_tch(tchAccount,using_tch_session,u_tch_info)
+        time.sleep(requestdelay/len(tchAccount))
     firstget = json.loads(firstget.text)
     throwerror(firstget)
     htmltext = ""
@@ -674,14 +730,16 @@ def read_question(teacher: Session, difficulty: str, knowledgeid: list, subjects
                     templist += 1
                 htmltext += arrangelist(realchoice)
             else:
-                secondget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=" + str(pagechoice) + "&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
+                secondget = using_tch_session.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=" + str(pagechoice) + "&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
                                         "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
-                time.sleep(requestdelay)
+                time.sleep(requestdelay/len(tchAccount))
+                switch_tch(tchAccount,using_tch_session,u_tch_info)
                 while secondget.status_code != 200:
                     input("出错了：状态码：" + str(secondget.status_code))
-                    secondget = teacher.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
+                    secondget = using_tch_session.get("https://www.zhixue.com/paperfresh/api/question/show/knowledge/getTopics?pageIndex=1&knowledgeSelectType=0&knowledgeType=0&knowledgeId=" + coventlist(knowledgeid) + "&paperId=&level=0&gradeCode=" + gradecode + "&sectionCode=&difficultyCode=" + difficulty +
                                             "&paperTypeCode=&topicFromCode=&areas=&year=&sortField=default&sortDirection=true&keyWord=+&knowledgeTag=01&keywordSearchField=topic&excludePapers=&isRelatedPapers=true", data="phaseCode=05&subjectCode="+subjectscode, verify=isVerifysslCert, headers=editheaders, cookies=teacher.cookies)
-                    time.sleep(requestdelay)
+                    time.sleep(requestdelay/len(tchAccount))
+                    switch_tch(tchAccount,using_tch_session,u_tch_info)
                 secondget = json.loads(secondget.text)
                 throwerror(secondget)
                 templist = 0
@@ -699,10 +757,17 @@ def read_question(teacher: Session, difficulty: str, knowledgeid: list, subjects
 print("欢迎使用智学网错题生成助手")
 global stuAccount
 global tchAccount
+global using_tch_session
+using_tch_session = ""
 stuAccount = []
 print("本软件国内下载地址：https://gitee.com/w2016561536/zhixue_errorbook")
-loginname = input("请输入学生账户用户名：")
-loginpwd = input("请输入学生账户密码：")
+if config_stu_name != "" and config_stu_pwd != "" :
+    loginname = config_stu_name
+    loginpwd = config_stu_pwd
+    print("已从配置中读取学生用户名和密码")
+else:
+    loginname = input("请输入学生账户用户名：")
+    loginpwd = input("请输入学生账户密码：")
 loginrespond = loginwithpwd(loginname, loginpwd, 0)
 student = loginrespond[0]
 useruid = loginrespond[1]
@@ -713,13 +778,13 @@ getstuinfo = json.loads(getstuinfo.text)
 cgrade = getstuinfo["student"]["clazz"]["grade"]["name"]
 dgrage = getstuinfo["student"]["clazz"]["grade"]["code"]
 print("年级：" + cgrade)
-stuAccount.append([loginrespond,loginname,loginpwd])
+#stuAccount.append([loginrespond,loginname,loginpwd])
 teacher = ""
 hardcount = -2
 easycount = -2
-
-
 tchAccount = []
+global u_tch_info
+u_tch_info = ""
 loginname = "a"
 while loginname != "" :
     loginname = input("请输入教师账户用户名，用于推题：")
@@ -729,8 +794,9 @@ while loginname != "" :
         teacher = loginrespond[0]
         tchAccount.append([teacher, loginname, loginpwd])
         easycount = -1
-    break
-
+if easycount == -1 :
+    using_tch_session = tchAccount[0][0]
+    u_tch_info = tchAccount[0]
 requireSameType = False
 headerforerrbook["XToken"] = "null"
 xtoken = getxtoken(student)
@@ -817,7 +883,7 @@ print("学科：" + subjectdict[subjectcode], "\n起始时间：", recoginzedtim
     "%Y-%m-%d"), "\n终止时间：", endrecoginzedtime.strftime("%Y-%m-%d"))
 print("正在获取数据")
 htmltext = geterrorlists(student, subjectcode,
-                         starttimestamp, endtimestamp, dgrage, hardcount, easycount, subjectdict[subjectcode], teacher,requireSameType)
+                         starttimestamp, endtimestamp, dgrage, hardcount, easycount, subjectdict[subjectcode], using_tch_session,requireSameType,tchAccount)
 htmltext += "</body>"
 htmltext += "<script>window.onload=function(){var c=document.getElementsByTagName(\"img\");for(var a=0,b;b=c[a];a++){if(b.width>630){b.width=630;}};var c=document.getElementsByTagName(\"table\");for(var a=0,b;b=c[a];a++){b.width=\"auto\"}};</script>\n"
 htmltext += "<script type=\"text/javascript\" async \nsrc=\"https://static.zhixue.com/common/mathjax/2.7.1/MathJax.js?config=TeX-AMS_CHTML\" async></script>"
