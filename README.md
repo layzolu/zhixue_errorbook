@@ -1,5 +1,5 @@
 # zhixue_errorbook
-智学网错题生成器 test 
+智学网错题生成器 v2.0
  
 ## 注意：  
 此项目使用Python3.8.7构建，不兼容Python2  
